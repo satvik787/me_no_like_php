@@ -7,7 +7,12 @@
         if($start == null){
             $start = 3647;
         }
-        $val = $db->query("SELECT product_id,model,quantity,price,date_available,viewed FROM oc_product WHERE product_id >= $start limit $numRows");
+        $p = 'oc_product';
+        $d = 'oc_product_description';
+        $val = $db->query(
+            "SELECT $p.product_id,$d.name,$d.description,$p.model,$p.quantity,$p.price,$p.date_available,$p.viewed 
+            FROM oc_product INNER JOIN oc_product_description
+            ON $p.product_id = $d.product_id WHERE $p.product_id >= $start limit $numRows");
         $res = new Response('ok', 1, $val->rows,$val->num_rows);
         return $res;
     }
