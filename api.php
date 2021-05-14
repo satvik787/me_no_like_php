@@ -1,7 +1,7 @@
 <?php
     namespace DB;
     require 'mysqli.php';
-    $db = new MySQLi("0.0.0.0","root","pothukuchi","softij11_oc1");
+    $db = new MySQLi("0.0.0.0","root","Spacerocket","softij11_oc1");
     function getProducts($numRows,$start){
         global $db;
         if($start == null){
