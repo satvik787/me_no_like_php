@@ -17,18 +17,30 @@
         return $res;
     }
 
-    $route = $_GET['route'];
-    if($route != null){
-        if($route == 'products/limit'){
-            $limit = $_GET['limit'];
-            $start = $_GET['start'];
-            if($limit != null){
-                echo json_encode(getProducts($limit,$start));
+
+    $getRoutes = [
+        'products'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'GET'){
+                $limit = $_GET['limit'];
+                $start = $_GET['start'];
+                if($limit != null){
+                    echo json_encode(getProducts($limit,$start));
+                }else{
+                    echo json_encode(new Response('limit is null',-1));
+                }
             }else{
-                echo json_encode(new Response('limit is null',-1));
-            }
+                echo json_encode(new Response('invalid method',-1));
+            }            
+        },
+    ];
+    $route = $_GET['route'];
+
+    if($route != null){
+        $func = $getRoutes[$route];
+        if($func != null){
+            $func();
         }else{
-            echo json_encode(new Response('route '. $route .'is not defined',-1));
+            echo json_encode(new Response($route.' is not defined',-1));
         }
     }else{
         echo json_encode(new Response('route is null',-1));
