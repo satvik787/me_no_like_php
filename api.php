@@ -17,6 +17,50 @@
         return $res;
     }
 
+    function getWishlistProducts($customer_id){
+        global $db;
+        $p = 'oc_product';
+        $d = 'oc_product_description';
+        $a = 'oc_customer_wishlist';
+        $val = $db->query(
+
+            "SELECT oc_product.product_id,name,description,model
+            quantity,price,oc_customer_wishlist.date_added AS DateAdded
+            FROM oc_product 
+            JOIN oc_customer_wishlist 
+            ON oc_customer_wishlist.customer_id = $customer_id and 
+            oc_customer_wishlist.product_id = oc_product.product_id
+            JOIN oc_product_description
+            ON oc_product.product_id = oc_product_description.product_id");
+
+        $res = new Response('ok', 1, $val->rows,$val->num_rows);
+        return $res;
+    }
+
+    // function putWishlistProducts($customer_id,$product_id){
+    //     global $db;
+    //     $db->query(
+    //         "insert into oc_customer_wishlist (customer_id,product_id) values($customer_id,$product_id)"
+    //     );
+    // }
+
+
+
+    // $postRoutes = [
+    //     'wishlist'=>function(){
+    //         if ($_SERVER['REQUEST_METHOD']=='POST'){
+    //             $customer_id = $_POST['customerId'];
+    //             $product_id = $_POST['']
+    //             if($customer_id != null && $product_id != null ){
+    //                 putWishlistProducts($customer_id,$product_id);
+    //             }
+    //             // else{
+
+    //             // }
+    //         }
+
+    //     }
+    // ];
 
     $getRoutes = [
         'products'=>function(){
@@ -32,15 +76,33 @@
                 echo json_encode(new Response('invalid method',-1));
             }            
         },
+        'wishlist'=>function(){
+            if ($_SERVER['REQUEST_METHOD']=='GET'){
+                $customer_id = $_GET['customerId'];
+                if($customer_id != null){
+                    echo json_encode(getWishlistProducts($customer_id));
+                }
+            }
+        }
     ];
-    $route = $_GET['route'];
+    $getRoute = $_GET['route'];
 
-    if($route != null){
-        $func = $getRoutes[$route];
+    // $postRoute = $_POST['route'];
+    // if($postRoute != null){
+    //     $func = $postRoutes[$postRoute];
+    //     if($func != null){
+    //         $func();
+    //     }else{
+    //         echo json_encode(new Response($postRoute.' is not defined',-1));
+    //     }
+    // }
+
+    if($getRoute != null){
+        $func = $getRoutes[$getRoute];
         if($func != null){
             $func();
         }else{
-            echo json_encode(new Response($route.' is not defined',-1));
+            echo json_encode(new Response($getRoute.' is not defined',-1));
         }
     }else{
         echo json_encode(new Response('route is null',-1));
