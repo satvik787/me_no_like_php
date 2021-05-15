@@ -1,7 +1,7 @@
 <?php
     namespace DB;
     require 'mysqli.php';
-    $db = new MySQLi("0.0.0.0","root","Spacerocket","softij11_oc1");
+    $db = new MySQLi("0.0.0.0","root","pothukuchi","softij11_oc1");
     function getProducts($numRows,$start){
         global $db;
         if($start == null){
@@ -10,7 +10,7 @@
         $p = 'oc_product';
         $d = 'oc_product_description';
         $val = $db->query(
-            "SELECT $p.product_id,$d.name,$d.description,$p.model,$p.quantity,$p.price,$p.date_available,$p.viewed 
+            "SELECT $p.product_id,$d.name,$d.description,$p.model,$p.quantity,$p.price,$p.date_added,$p.viewed 
             FROM oc_product INNER JOIN oc_product_description
             ON $p.product_id = $d.product_id WHERE $p.product_id >= $start limit $numRows");
         $res = new Response('ok', 1, $val->rows,$val->num_rows);
@@ -23,44 +23,58 @@
         $d = 'oc_product_description';
         $a = 'oc_customer_wishlist';
         $val = $db->query(
-
-            "SELECT oc_product.product_id,name,description,model
-            quantity,price,oc_customer_wishlist.date_added AS DateAdded
+            "SELECT oc_product.product_id,name,description,oc_product.model,
+            viewed,oc_product.date_added,quantity,price,
+            oc_customer_wishlist.date_added AS addedToListOn
             FROM oc_product 
             JOIN oc_customer_wishlist 
             ON oc_customer_wishlist.customer_id = $customer_id and 
             oc_customer_wishlist.product_id = oc_product.product_id
             JOIN oc_product_description
             ON oc_product.product_id = oc_product_description.product_id");
-
         $res = new Response('ok', 1, $val->rows,$val->num_rows);
         return $res;
     }
 
-    // function putWishlistProducts($customer_id,$product_id){
-    //     global $db;
-    //     $db->query(
-    //         "insert into oc_customer_wishlist (customer_id,product_id) values($customer_id,$product_id)"
-    //     );
-    // }
+    function putWishlistProducts($customer_id,$product_id){
+        global $db;
+        $val = $db->query(
+            "insert into oc_customer_wishlist (customer_id,product_id) values($customer_id,$product_id)"
+        );
+        if($val){
+            return new Response('ok',1);
+        }
+        return new Response('product is not added to wishlist',-1);
+    }
+
+    function getCustomerId($email){
+        global $db;
+        $columns = "";
+        $val = $db->query(
+            "SELECT customer_id,store_id,firstname,lastname,email,telephone,ip,date_added FROM oc_customer WHERE email = '$email'"
+        );
+        if($val->num_rows > 0){
+            return new Response('ok',1,$val->rows,$val->num_rows);
+        }
+        return new Response('no user found',-1);
+    }
 
 
 
-    // $postRoutes = [
-    //     'wishlist'=>function(){
-    //         if ($_SERVER['REQUEST_METHOD']=='POST'){
-    //             $customer_id = $_POST['customerId'];
-    //             $product_id = $_POST['']
-    //             if($customer_id != null && $product_id != null ){
-    //                 putWishlistProducts($customer_id,$product_id);
-    //             }
-    //             // else{
-
-    //             // }
-    //         }
-
-    //     }
-    // ];
+    $postRoutes = [
+        'wishlist'=>function(){
+            if ($_SERVER['REQUEST_METHOD']=='POST'){
+                $customer_id = $_POST['customerId'];
+                $product_id = $_POST['productId'];
+                if($customer_id != null && $product_id != null){
+                    echo json_encode(putWishlistProducts($customer_id,$product_id));
+                }
+                else{
+                    echo json_encode('customerId and productId cannot be null',-1);
+                }
+            }
+        }
+    ];
 
     $getRoutes = [
         'products'=>function(){
@@ -77,36 +91,52 @@
             }            
         },
         'wishlist'=>function(){
-            if ($_SERVER['REQUEST_METHOD']=='GET'){
+            if ($_SERVER['REQUEST_METHOD'] == 'GET'){
                 $customer_id = $_GET['customerId'];
                 if($customer_id != null){
                     echo json_encode(getWishlistProducts($customer_id));
+                }else{
+                    echo json_encode(new Response('customerId is null',-1));
                 }
+            }else{
+                echo json_encode(new Response('invalid method',-1));
+            }
+        },
+        'customerId'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'GET'){
+                $email = $_GET['email'];
+                if($email != null){
+                    echo json_encode(getCustomerId($email));
+                }else{
+                    echo json_encode(new Response('email is null',-1));
+                }
+            }else{
+                echo json_encode(new Response('invalid method',-1));
             }
         }
     ];
+
     $getRoute = $_GET['route'];
+    $postRoute = $_POST['route'];
 
-    // $postRoute = $_POST['route'];
-    // if($postRoute != null){
-    //     $func = $postRoutes[$postRoute];
-    //     if($func != null){
-    //         $func();
-    //     }else{
-    //         echo json_encode(new Response($postRoute.' is not defined',-1));
-    //     }
-    // }
-
-    if($getRoute != null){
+    if($_SERVER['REQUEST_METHOD'] == 'GET'){
         $func = $getRoutes[$getRoute];
         if($func != null){
             $func();
         }else{
-            echo json_encode(new Response($getRoute.' is not defined',-1));
+            echo json_encode(new Response('Route '.$getRoute.' is not defined',-1));
+        }
+    }elseif($_SERVER['REQUEST_METHOD'] == 'POST'){
+        $func = $postRoutes[$postRoute];
+        if($func != null){
+            $func();
+        }else{
+            echo json_encode(new Response('Route '.$postRoute.' is not defined',-1));
         }
     }else{
-        echo json_encode(new Response('route is null',-1));
+        echo json_encode(new Response('Invalid Http Method',-1));
     }
+
 
     class Response{
         public $Msg;
