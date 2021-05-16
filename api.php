@@ -2,6 +2,10 @@
     namespace DB;
     require 'mysqli.php';
     $db = new MySQLi("0.0.0.0","root","pothukuchi","softij11_oc1");
+    
+    // ===================================================================================================
+    // GET DB Functions
+
     function getProducts($numRows,$start){
         global $db;
         if($start == null){
@@ -36,15 +40,15 @@
         return $res;
     }
 
-    function putWishlistProducts($customer_id,$product_id){
+    function getAddress($customerId){
         global $db;
         $val = $db->query(
-            "insert into oc_customer_wishlist (customer_id,product_id) values($customer_id,$product_id)"
+            "SELECT * FROM oc_address WHERE customer_id = $customerId"
         );
-        if($val){
-            return new Response('ok',1);
+        if($val->num_rows > 0){
+            return new Response('ok',1,$val->rows,$val->num_rows);
         }
-        return new Response('product is not added to wishlist',-1);
+        return new Response('invlalid customerId',-1);
     }
 
     function getCustomerId($email){
@@ -56,6 +60,31 @@
             return new Response('ok',1,$val->rows,$val->num_rows);
         }
         return new Response('no user found',-1);
+    }
+
+    function getAccInfo($id){
+        global $db;
+        $val = $db->query(
+            "SELECT customer_id,store_id,firstname,lastname,email,address_id,telephone,ip,date_added FROM oc_customer WHERE customer_id = '$id'"
+        );
+        if($val->num_rows > 0){
+            return new Response('ok',1,$val->rows,$val->num_rows);
+        }
+        return new Response("$id is invalid",-1);
+    }
+
+// =======================================================================================================
+// POST DB Functions
+
+    function putWishlistProducts($customer_id,$product_id){
+        global $db;
+        $val = $db->query(
+            "insert into oc_customer_wishlist (customer_id,product_id) values($customer_id,$product_id)"
+        );
+        if($val){
+            return new Response('ok',1);
+        }
+        return new Response('product is not added to wishlist',-1);
     }
 
     function updateCustomer($id,$email,$firstname,$lastname,$phone){
@@ -74,6 +103,35 @@
         }
 
     }
+
+
+    function putAddress($customer_id,$address1,$address2,$company,$city,$postcode,$zoneId){
+        global $db;
+        $customer = getAccInfo($customer_id);
+        if($customer->code > 0){
+            $first = $customer->result[0]['firstname'];
+            $last = $customer->result[0]['lastname'];
+            $val = $db->query(
+                "INSERT INTO oc_address (customer_id,firstname,lastname,company,address_1,address_2,city,postcode,country_id,zone_id)
+                VALUES('$customer_id','$first','$last','$company','$address1','$address2','$city','$postcode','99','$zoneId');
+                "
+            );
+            if($val){
+                if($customer->result[0]['address_id'] == 0){
+                    $addressId = getAddress($customer_id)->result[0]['address_id'];
+                    $db->query(
+                        "UPDATE oc_customer SET address_id = $addressId WHERE customer_id = $customer_id"
+                    );
+                }
+                return new Response("address added",1);
+            }
+            return new Response("unable to add address",-1);
+        }
+        return $customer;
+    }
+
+
+    // ===================================================================================================
 
     $postRoutes = [
         'wishlist'=>function(){
@@ -101,6 +159,25 @@
                     echo json_encode(updateCustomer($id,$email,$firstname,$lastname,$phone));
                 }else{
                     echo json_encode(new Response('firstname,lastname,email and phone cannot be null',-1));
+                }
+            }else{
+                echo json_encode(new Response('Invalid method',-1));
+            }
+        },
+        'account/address'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'POST'){
+                $id = $_POST['customerId'];
+                $address1 = $_POST['address1'];
+                $address2 = $_POST['address2'];
+                $city = $_POST['city'];
+                $postcode = $_POST['postcode'];
+                $zoneId = $_POST['zoneId'];
+                $company = $_POST['company'];
+                $company = $company == null ? "Empty" : $company;
+                if($id != null && $address1 != null && $address2 != null && $city != null && $postcode != null && $zoneId != null){
+                    echo json_encode(putAddress($id,$address1,$address2,$company,$city,$postcode,$zoneId));
+                }else{
+                    echo json_encode(new Response("Empty form data",-1));
                 }
             }else{
                 echo json_encode(new Response('Invalid method',-1));
@@ -141,6 +218,30 @@
                     echo json_encode(getCustomerId($email));
                 }else{
                     echo json_encode(new Response('email is null',-1));
+                }
+            }else{
+                echo json_encode(new Response('invalid method',-1));
+            }
+        },
+        'account/info'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'GET'){
+                $id = $_GET['customerId'];
+                if($id != null){
+                    echo json_encode(getAccInfo($id));
+                }else{
+                    echo json_encode(new Response('customerId is null',-1));
+                }
+            }else{
+                echo json_encode(new Response('invalid method',-1));
+            }
+        },
+        'account/address'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'GET'){
+                $id = $_GET['customerId'];
+                if($id != null){
+                    echo json_encode(getAddress($id));
+                }else{
+                    echo json_encode(new Response('CustomerId is null',-1));
                 }
             }else{
                 echo json_encode(new Response('invalid method',-1));
