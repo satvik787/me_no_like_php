@@ -49,9 +49,8 @@
 
     function getCustomerId($email){
         global $db;
-        $columns = "";
         $val = $db->query(
-            "SELECT customer_id,store_id,firstname,lastname,email,telephone,ip,date_added FROM oc_customer WHERE email = '$email'"
+            "SELECT customer_id,store_id,firstname,lastname,email,address_id,telephone,ip,date_added FROM oc_customer WHERE email = '$email'"
         );
         if($val->num_rows > 0){
             return new Response('ok',1,$val->rows,$val->num_rows);
@@ -59,7 +58,22 @@
         return new Response('no user found',-1);
     }
 
+    function updateCustomer($id,$email,$firstname,$lastname,$phone){
+        global $db;
+        $customer = getCustomerId($email);
+        if($customer->code < 0 || $customer->result[0]['customer_id'] == $id){
+            $val = $db->query(
+                "UPDATE oc_customer SET email='$email',firstname='$firstname',lastname='$lastname',telephone='$phone' WHERE customer_id = '$id'"
+            );
+            if($val){
+                return new Response('ok',1);
+            }
+            return new Response('update unsuccessful',-1);
+        }else{
+            return new Response("$email is associated with another account",-1);
+        }
 
+    }
 
     $postRoutes = [
         'wishlist'=>function(){
@@ -70,8 +84,26 @@
                     echo json_encode(putWishlistProducts($customer_id,$product_id));
                 }
                 else{
-                    echo json_encode('customerId and productId cannot be null',-1);
+                    echo json_encode(new Response('customerId and productId cannot be null',-1));
                 }
+            }else{
+                echo json_encode(new Response('Invalid method',-1));
+            }
+        },
+        'account/edit'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'POST'){
+                $email = $_POST['email'];
+                $firstname = $_POST['firstname'];
+                $lastname = $_POST['lastname'];
+                $phone = $_POST['phone'];
+                $id = $_POST['customerId'];
+                if($id != null && $email != null && $firstname != null && $lastname != null && $phone != null){
+                    echo json_encode(updateCustomer($id,$email,$firstname,$lastname,$phone));
+                }else{
+                    echo json_encode(new Response('firstname,lastname,email and phone cannot be null',-1));
+                }
+            }else{
+                echo json_encode(new Response('Invalid method',-1));
             }
         }
     ];
