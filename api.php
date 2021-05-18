@@ -1,7 +1,7 @@
 <?php
     namespace DB;
     require 'mysqli.php';
-    $db = new MySQLi("0.0.0.0","root","pothukuchi","softij11_oc1");
+    $db = new MySQLi("0.0.0.0","root","Spacerocket","softij11_oc1");
     
     // ===================================================================================================
     // GET DB Functions
@@ -14,7 +14,7 @@
         $p = 'oc_product';
         $d = 'oc_product_description';
         $val = $db->query(
-            "SELECT $p.product_id,$d.name,$d.description,$p.model,$p.quantity,$p.price,$p.date_added,$p.viewed 
+            "SELECT oc_product.image,$p.product_id,$d.name,$d.description,$p.model,$p.quantity,$p.price,$p.date_added,$p.viewed 
             FROM oc_product INNER JOIN oc_product_description
             ON $p.product_id = $d.product_id WHERE $p.product_id >= $start limit $numRows");
         $res = new Response('ok', 1, $val->rows,$val->num_rows);
@@ -27,7 +27,7 @@
         $d = 'oc_product_description';
         $a = 'oc_customer_wishlist';
         $val = $db->query(
-            "SELECT oc_product.product_id,name,description,oc_product.model,
+            "SELECT oc_product.image,oc_product.product_id,name,description,oc_product.model,
             viewed,oc_product.date_added,quantity,price,
             oc_customer_wishlist.date_added AS addedToListOn
             FROM oc_product 
@@ -36,6 +36,37 @@
             oc_customer_wishlist.product_id = oc_product.product_id
             JOIN oc_product_description
             ON oc_product.product_id = oc_product_description.product_id");
+        $res = new Response('ok', 1, $val->rows,$val->num_rows);
+        return $res;
+    }
+
+    function getCurrentOrders($id){
+        global $db;
+        $val = $db->query(
+            "SELECT oc_product.image,oc_product_description.name,oc_product_description.description,
+            oc_order_product.model,oc_order_product.quantity,oc_order_product.price,oc_order.total,oc_order.order_status_id
+            FROM oc_order 
+            JOIN oc_order_product ON oc_order.customer_id = $id AND oc_order_product.order_id = oc_order.order_id
+            JOIN oc_product_description ON oc_order_product.product_id = oc_product_description.product_id
+            JOIN oc_product ON oc_order_product.product_id = oc_product.product_id "
+        );
+        $res = new Response('ok', 1, $val->rows,$val->num_rows);
+        return $res;
+
+    }
+
+    // function getPastOrders($id){
+    //     global $id;
+    //     $val = $db->query(
+    //         "SELECT "
+    //     )
+    // }
+
+    function getZoneIds(){
+        global $db;
+        $val = $db->query(
+            " SELECT * FROM `oc_zone` WHERE country_id=99 "
+        );
         $res = new Response('ok', 1, $val->rows,$val->num_rows);
         return $res;
     }
@@ -130,11 +161,16 @@
         return $customer;
     }
 
+    // function putOrder($id){
+    //     global db;
+
+    // }
+
 
     // ===================================================================================================
 
     $postRoutes = [
-        'wishlist'=>function(){
+        'account/wishlist'=>function(){
             if ($_SERVER['REQUEST_METHOD']=='POST'){
                 $customer_id = $_POST['customerId'];
                 $product_id = $_POST['productId'];
@@ -183,6 +219,18 @@
                 echo json_encode(new Response('Invalid method',-1));
             }
         }
+        // 'account/orders'=>function(){
+        //     if($_SERVER['REQUEST_METHOD'] == 'POST'){
+        //         $id = $_POST['id'];
+        //         if($id != null ){
+        //             echo json_encode(putOrder($id));
+        //         }else{
+        //             echo json_encode(new Response("Empty form data",-1));
+        //         }
+        //     }else{
+        //         echo json_encode(new Response('Invalid method',-1));
+        //     }
+        // }
     ];
 
     $getRoutes = [
@@ -199,7 +247,7 @@
                 echo json_encode(new Response('invalid method',-1));
             }            
         },
-        'wishlist'=>function(){
+        'account/wishlist'=>function(){
             if ($_SERVER['REQUEST_METHOD'] == 'GET'){
                 $customer_id = $_GET['customerId'];
                 if($customer_id != null){
@@ -246,7 +294,39 @@
             }else{
                 echo json_encode(new Response('invalid method',-1));
             }
+        },
+        'account/orders'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'GET'){
+                $id = $_GET['customerId'];
+                if($id != null){
+                    echo json_encode(getCurrentOrders($id));
+                }else{
+                    echo json_encode(new Response('CustomerId is null',-1));
+                }
+            }else{
+                echo json_encode(new Response('invalid method',-1));
+            }
+        },
+        'zoneIds'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'GET'){
+                echo json_encode(getZoneIds());
+            }
+            }else{
+                echo json_encode(new Response('invalid method',-1));
+            }
         }
+        // 'account/pastOrders'=>function(){
+        //     if($_SERVER['REQUEST_METHOD'] == 'GET'){
+        //         $id = $_GET['customerId']
+        //         if($id != null){
+        //             echo json_encode(getPastOrders($id) );
+        //         }else{
+        //             echo json_encode(new Response('CustomerId is null',-1));
+        //         }
+        //     }else{
+        //         echo json_encode(new Response('invalid method',-1));
+        //     }
+        // }
     ];
 
     $getRoute = $_GET['route'];
