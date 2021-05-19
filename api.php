@@ -1,7 +1,7 @@
 <?php
     namespace DB;
     require 'mysqli.php';
-    $db = new MySQLi("0.0.0.0","root","Spacerocket","softij11_oc1");
+    $db = new MySQLi("0.0.0.0","root","pothukuchi","softij11_oc1");
     
     // ===================================================================================================
     // GET DB Functions
@@ -55,12 +55,6 @@
 
     }
 
-    // function getPastOrders($id){
-    //     global $id;
-    //     $val = $db->query(
-    //         "SELECT "
-    //     )
-    // }
 
     function getZoneIds(){
         global $db;
@@ -82,10 +76,21 @@
         return new Response('invlalid customerId',-1);
     }
 
+    function getAddressById($id){
+        global $db;
+        $val = $db->query(
+            "SELECT * FROM oc_address WHERE address_id = $id"
+        );
+        if($val->num_rows > 0){
+            return new Response('ok',1,$val->rows,$val->num_rows);
+        }
+        return new Response('invlalid Address Id',-1);
+    }  
+
     function getCustomerId($email){
         global $db;
         $val = $db->query(
-            "SELECT customer_id,store_id,firstname,lastname,email,address_id,telephone,ip,date_added FROM oc_customer WHERE email = '$email'"
+            "SELECT customer_id,store_id,firstname,lastname,email,address_id,telephone,ip,fax,date_added FROM oc_customer WHERE email = '$email'"
         );
         if($val->num_rows > 0){
             return new Response('ok',1,$val->rows,$val->num_rows);
@@ -96,7 +101,7 @@
     function getAccInfo($id){
         global $db;
         $val = $db->query(
-            "SELECT customer_id,store_id,firstname,lastname,email,address_id,telephone,ip,date_added FROM oc_customer WHERE customer_id = '$id'"
+            "SELECT customer_id,store_id,firstname,lastname,email,address_id,telephone,ip,fax,date_added FROM oc_customer WHERE customer_id = '$id'"
         );
         if($val->num_rows > 0){
             return new Response('ok',1,$val->rows,$val->num_rows);
@@ -135,6 +140,17 @@
 
     }
 
+    function putInCart($customerId,$productId,$quantity){
+        global $db;
+        $val = $db->query(
+            "INSERT INTO oc_cart(`api_id`,`customer_id`,`session_id`,`product_id`,`recurring_id`,`option`,`quantity`)
+            VALUES('0','$customerId','0','$productId','0','[]','$quantity');"
+        );
+        if($val){
+            return new Response("product added to cart",1);
+        }
+        return new Reponse("failed to add product to cart",-1);
+    }
 
     function putAddress($customer_id,$address1,$address2,$company,$city,$postcode,$zoneId){
         global $db;
@@ -160,11 +176,6 @@
         }
         return $customer;
     }
-
-    // function putOrder($id){
-    //     global db;
-
-    // }
 
 
     // ===================================================================================================
@@ -218,23 +229,25 @@
             }else{
                 echo json_encode(new Response('Invalid method',-1));
             }
+        },
+        'checkout'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'POST'){
+                $customerId = $_POST['customerId'];
+                $productId = $_POST['productId'];
+                $quantity = $_POST['quantity'];
+                if($customerId != null && $productId != null && $quantity != null ){
+                    echo json_encode(putInCart($customerId,$productId,$quantity));
+                }else{
+                    echo json_encode(new Response("Empty form data",-1));
+                }
+            }else{
+                echo json_encode(new Response('Invalid method',-1));
+            }
         }
-        // 'account/orders'=>function(){
-        //     if($_SERVER['REQUEST_METHOD'] == 'POST'){
-        //         $id = $_POST['id'];
-        //         if($id != null ){
-        //             echo json_encode(putOrder($id));
-        //         }else{
-        //             echo json_encode(new Response("Empty form data",-1));
-        //         }
-        //     }else{
-        //         echo json_encode(new Response('Invalid method',-1));
-        //     }
-        // }
     ];
 
     $getRoutes = [
-        'products'=>function(){
+        'list/products'=>function(){
             if($_SERVER['REQUEST_METHOD'] == 'GET'){
                 $limit = $_GET['limit'];
                 $start = $_GET['start'];
@@ -259,7 +272,7 @@
                 echo json_encode(new Response('invalid method',-1));
             }
         },
-        'customerId'=>function(){
+        'account/customerId'=>function(){
             if($_SERVER['REQUEST_METHOD'] == 'GET'){
                 $email = $_GET['email'];
                 if($email != null){
@@ -307,10 +320,9 @@
                 echo json_encode(new Response('invalid method',-1));
             }
         },
-        'zoneIds'=>function(){
+        'list/zoneId'=>function(){
             if($_SERVER['REQUEST_METHOD'] == 'GET'){
                 echo json_encode(getZoneIds());
-            }
             }else{
                 echo json_encode(new Response('invalid method',-1));
             }
@@ -331,25 +343,27 @@
 
     $getRoute = $_GET['route'];
     $postRoute = $_POST['route'];
-
-    if($_SERVER['REQUEST_METHOD'] == 'GET'){
-        $func = $getRoutes[$getRoute];
-        if($func != null){
-            $func();
+    try{
+        if($_SERVER['REQUEST_METHOD'] == 'GET'){
+            $func = $getRoutes[$getRoute];
+            if($func != null){
+                $func();
+            }else{
+                echo json_encode(new Response('Route '.$getRoute.' is not defined',-1));
+            }
+        }elseif($_SERVER['REQUEST_METHOD'] == 'POST'){
+            $func = $postRoutes[$postRoute];
+            if($func != null){
+                $func();
+            }else{
+                echo json_encode(new Response('Route '.$postRoute.' is not defined',-1));
+            }
         }else{
-            echo json_encode(new Response('Route '.$getRoute.' is not defined',-1));
+            echo json_encode(new Response('Invalid Http Method',-1));
         }
-    }elseif($_SERVER['REQUEST_METHOD'] == 'POST'){
-        $func = $postRoutes[$postRoute];
-        if($func != null){
-            $func();
-        }else{
-            echo json_encode(new Response('Route '.$postRoute.' is not defined',-1));
-        }
-    }else{
-        echo json_encode(new Response('Invalid Http Method',-1));
+    }catch(Exception $e){
+        echo json_encode(new Response("Server Error",-500,$e,-1));
     }
-
 
     class Response{
         public $Msg;
