@@ -87,6 +87,17 @@
         return new Response('invlalid Address Id',-1);
     }  
 
+    function inWishlist($productId,$customerId){
+        global $db;
+        $val = $db->query(
+            "SELECT * FROM oc_customer_wishlist WHERE customer_id = $customerId AND product_id = $productId"
+        );
+        if($val->num_rows > 0){
+            return new Response('ok',1,$val->rows,$val->num_rows);
+        }
+        return new Response('no product found',-1);
+    }
+
     function getCustomerId($email){
         global $db;
         $val = $db->query(
@@ -323,6 +334,19 @@
         'list/zoneId'=>function(){
             if($_SERVER['REQUEST_METHOD'] == 'GET'){
                 echo json_encode(getZoneIds());
+            }else{
+                echo json_encode(new Response('invalid method',-1));
+            }
+        },
+        'account/wishlist/id'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'GET'){
+                $customerId = $_GET['customerId'];
+                $productId = $_GET['productId'];
+                if($customerId != null && $productId != null){
+                    echo json_encode(inWishlist($productId,$customerId));
+                }else{
+                    echo json_encode(new Response('customerId is null or productId',-1));
+                }
             }else{
                 echo json_encode(new Response('invalid method',-1));
             }
