@@ -36,15 +36,15 @@
             oc_customer_wishlist.product_id = oc_product.product_id
             JOIN oc_product_description
             ON oc_product.product_id = oc_product_description.product_id");
-        $res = new Response('ok', 1, $val->rows,$val->num_rows);
+        $res = new Response('ok ', 1, $val->rows,$val->num_rows);
         return $res;
     }
 
     function getCurrentOrders($id){
         global $db;
         $val = $db->query(
-            "SELECT oc_product.image,oc_product_description.name,oc_product_description.description,
-            oc_order_product.model,oc_order_product.quantity,oc_order_product.price,oc_order.total,oc_order.order_status_id
+            "SELECT oc_product.product_id,oc_product.image,oc_product_description.name,oc_product_description.description,
+            oc_order_product.model,oc_order_product.quantity,oc_order_product.price,oc_order.total,oc_order.order_status_id,oc_order.date_added
             FROM oc_order 
             JOIN oc_order_product ON oc_order.customer_id = $id AND oc_order_product.order_id = oc_order.order_id
             JOIN oc_product_description ON oc_order_product.product_id = oc_product_description.product_id
@@ -68,7 +68,7 @@
     function getAddress($customerId){
         global $db;
         $val = $db->query(
-            "SELECT * FROM oc_address WHERE customer_id = $customerId"
+            "SELECT * FROM oc_address JOIN oc_zone ON customer_id = 31 AND oc_zone.zone_id = 4231;"
         );
         if($val->num_rows > 0){
             return new Response('ok',1,$val->rows,$val->num_rows);
@@ -129,9 +129,45 @@
             "insert into oc_customer_wishlist (customer_id,product_id) values($customer_id,$product_id)"
         );
         if($val){
-            return new Response('ok',1);
+            return new Response('OK added to wishlist',1);
         }
         return new Response('product is not added to wishlist',-1);
+    }
+
+    function removefromWishList($customer_id,$product_id){
+        global $db;
+        $val = $db->query(
+            "DELETE FROM oc_customer_wishlist WHERE customer_id = $customer_id AND product_id = $product_id"
+        );
+        if($val){
+            return new Response("OK removed from wishlist",1);
+        }
+        return new Response("product not removed from wishlist",-1);
+    }
+
+
+    function deleteAddress($addressId){
+        global $db;
+        $val = $db->query(
+            "DELETE FROM oc_address WHERE address_id = $addressId"
+        );
+        if($val){
+            return new Response("OK Address Removed",1);
+        }
+        return new Response("Address not removed",-1);
+    }
+
+    function editAddress($addressId,$first,$last,$address1,$address2,$company,$city,$postcode,$zoneId){
+        global $db;
+        $val = $db->query(
+            "UPDATE oc_address 
+            SET firstname = '$first', lastname = '$last',address_1 = '$address1',address_2 ='$address2',company = '$company',city = '$city',postcode = '$postcode',zone_id = '$zoneId'
+            WHERE address_id = $addressId"
+        );
+        if($val){
+            return new Response("OK Address Updated",1);
+        }
+        return new Response("Edit unsuccessful",-1);
     }
 
     function updateCustomer($id,$email,$firstname,$lastname,$phone){
@@ -163,12 +199,10 @@
         return new Reponse("failed to add product to cart",-1);
     }
 
-    function putAddress($customer_id,$address1,$address2,$company,$city,$postcode,$zoneId){
+    function putAddress($customer_id,$first,$last,$address1,$address2,$company,$city,$postcode,$zoneId){
         global $db;
         $customer = getAccInfo($customer_id);
         if($customer->code > 0){
-            $first = $customer->result[0]['firstname'];
-            $last = $customer->result[0]['lastname'];
             $val = $db->query(
                 "INSERT INTO oc_address (customer_id,firstname,lastname,company,address_1,address_2,city,postcode,country_id,zone_id)
                 VALUES('$customer_id','$first','$last','$company','$address1','$address2','$city','$postcode','99','$zoneId');
@@ -206,6 +240,20 @@
                 echo json_encode(new Response('Invalid method',-1));
             }
         },
+        'account/wishlist/remove'=>function(){
+            if ($_SERVER['REQUEST_METHOD']=='POST'){
+                $customer_id = $_POST['customerId'];
+                $product_id = $_POST['productId'];
+                if($customer_id != null && $product_id != null){
+                    echo json_encode(removefromWishList($customer_id,$product_id));
+                }
+                else{
+                    echo json_encode(new Response('customerId and productId cannot be null',-1));
+                }
+            }else{
+                echo json_encode(new Response('Invalid method',-1));
+            }
+        },
         'account/edit'=>function(){
             if($_SERVER['REQUEST_METHOD'] == 'POST'){
                 $email = $_POST['email'];
@@ -225,6 +273,8 @@
         'account/address'=>function(){
             if($_SERVER['REQUEST_METHOD'] == 'POST'){
                 $id = $_POST['customerId'];
+                $first = $_POST["firstname"];
+                $last = $_POST["lastname"];
                 $address1 = $_POST['address1'];
                 $address2 = $_POST['address2'];
                 $city = $_POST['city'];
@@ -233,7 +283,40 @@
                 $company = $_POST['company'];
                 $company = $company == null ? "Empty" : $company;
                 if($id != null && $address1 != null && $address2 != null && $city != null && $postcode != null && $zoneId != null){
-                    echo json_encode(putAddress($id,$address1,$address2,$company,$city,$postcode,$zoneId));
+                    echo json_encode(putAddress($id,$first,$last,$address1,$address2,$company,$city,$postcode,$zoneId));
+                }else{
+                    echo json_encode(new Response("Empty form data",-1));
+                }
+            }else{
+                echo json_encode(new Response('Invalid method',-1));
+            }
+        },
+        'account/address/edit' =>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'POST'){
+                $id = $_POST['addressId'];
+                $address1 = $_POST['address1'];
+                $address2 = $_POST['address2'];
+                $first = $_POST["firstname"];
+                $last = $_POST["lastname"];
+                $city = $_POST['city'];
+                $postcode = $_POST['postcode'];
+                $zoneId = $_POST['zoneId'];
+                $company = $_POST['company'];
+                $company = $company == null ? "Empty" : $company;
+                if($id != null && $address1 != null && $address2 != null && $city != null && $postcode != null && $zoneId != null){
+                    echo json_encode(editAddress($id,$first,$last,$address1,$address2,$company,$city,$postcode,$zoneId));
+                }else{
+                    echo json_encode(new Response("Empty form data",-1));
+                }
+            }else{
+                echo json_encode(new Response('Invalid method',-1));
+            }
+        },
+        'account/address/delete'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'POST'){
+                $id = $_POST['addressId'];
+                if($id != null){
+                    echo json_encode(deleteAddress($id));
                 }else{
                     echo json_encode(new Response("Empty form data",-1));
                 }
