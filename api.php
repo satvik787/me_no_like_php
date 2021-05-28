@@ -2,7 +2,6 @@
     namespace DB;
     require 'mysqli.php';
     $db = new MySQLi("0.0.0.0","root","pothukuchi","softij11_oc1");
-    
     // ===================================================================================================
     // GET DB Functions
 
@@ -55,6 +54,26 @@
 
     }
 
+    function count($query){
+        global $db;
+        $val = $db->query(
+            "SELECT COUNT(product_id) AS listSize FROM oc_product_description WHERE `name` LIKE '%$query%'"
+        );
+        return new Response('ok', 1, $val->rows,$val->num_rows);
+    }
+
+    function search($query,$limit,$start){
+        global $db;
+        $p = 'oc_product';
+        $d = 'oc_product_description';
+        $start = $start == null ? 1:$start;
+        $val = $db->query(
+            "SELECT oc_product.image,$p.product_id,$d.name,$d.description,$p.model,$p.quantity,$p.price,$p.date_added,$p.viewed 
+            FROM oc_product INNER JOIN oc_product_description
+            ON $p.product_id = $d.product_id WHERE $d.name LIKE '%$query%' AND oc_product.product_id >= $start ORDER BY $p.product_id LIMIT $limit"
+        );
+        return new Response('ok', 1, $val->rows,$val->num_rows);
+    }
 
     function getZoneIds(){
         global $db;
@@ -68,12 +87,9 @@
     function getAddress($customerId){
         global $db;
         $val = $db->query(
-            "SELECT * FROM oc_address JOIN oc_zone ON customer_id = 31 AND oc_zone.zone_id = 4231;"
+            "SELECT * FROM oc_address JOIN oc_zone ON customer_id = $customerId AND oc_zone.zone_id = 4231;"
         );
-        if($val->num_rows > 0){
-            return new Response('ok',1,$val->rows,$val->num_rows);
-        }
-        return new Response('invlalid customerId',-1);
+        return new Response('ok',1,$val->rows,$val->num_rows);
     }
 
     function getAddressById($id){
@@ -101,7 +117,7 @@
     function getCustomerId($email){
         global $db;
         $val = $db->query(
-            "SELECT customer_id,store_id,firstname,lastname,email,address_id,telephone,ip,fax,date_added FROM oc_customer WHERE email = '$email'"
+            "SELECT customer_id,store_id,firstname,lastname,email,address_id,telephone,ip,fax,date_added,newsletter FROM oc_customer WHERE email = '$email'"
         );
         if($val->num_rows > 0){
             return new Response('ok',1,$val->rows,$val->num_rows);
@@ -112,7 +128,7 @@
     function getAccInfo($id){
         global $db;
         $val = $db->query(
-            "SELECT customer_id,store_id,firstname,lastname,email,address_id,telephone,ip,fax,date_added FROM oc_customer WHERE customer_id = '$id'"
+            "SELECT customer_id,store_id,firstname,lastname,email,address_id,telephone,ip,fax,date_added,newsletter FROM oc_customer WHERE customer_id = '$id'"
         );
         if($val->num_rows > 0){
             return new Response('ok',1,$val->rows,$val->num_rows);
@@ -198,6 +214,37 @@
         }
         return new Reponse("failed to add product to cart",-1);
     }
+    
+    function updateSub($customerId){
+        global $db;
+        $stat = getAccInfo($customerId)->result[0]['newsletter'];
+        $state = $stat == "0" ? 1:0;
+        $val = $db->query(
+            "UPDATE oc_customer SET newsletter = $state WHERE customer_id = '$customerId'"
+        );
+        if($val){
+            return new Response("OK",1);
+        }
+        return new Reponse("failed to change the state",-1);
+    }
+
+    function updateView($productId){
+        global $db;
+        $val = $db->query(
+            "SELECT viewed from oc_product WHERE product_id = $productId"
+        );
+        if($val->num_rows > 0){
+            $views = $val->row['viewed'] + 1;
+            $update = $db->query(
+                "UPDATE oc_product SET viewed = $views WHERE product_id = $productId"
+            );
+            if($update){
+                return new Response("OK",1,['viewed'=>$views]);
+            }
+            return new Reponse("failed to update view count",-1);
+        }
+        return new Reponse("Invlaid productId",-1);
+    }
 
     function putAddress($customer_id,$first,$last,$address1,$address2,$company,$city,$postcode,$zoneId){
         global $db;
@@ -249,6 +296,32 @@
                 }
                 else{
                     echo json_encode(new Response('customerId and productId cannot be null',-1));
+                }
+            }else{
+                echo json_encode(new Response('Invalid method',-1));
+            }
+        },
+        'account/update/sub'=>function(){
+            if ($_SERVER['REQUEST_METHOD']=='POST'){
+                $customer_id = $_POST['customerId'];
+                if($customer_id != null){
+                    echo json_encode(updateSub($customer_id));
+                }
+                else{
+                    echo json_encode(new Response('customerId cannot be null',-1));
+                }
+            }else{
+                echo json_encode(new Response('Invalid method',-1));
+            }
+        },
+        'update/views'=>function(){
+            if ($_SERVER['REQUEST_METHOD']=='POST'){
+                $product_id = $_POST['productId'];
+                if($product_id != null){
+                    echo json_encode(updateView($product_id));
+                }
+                else{
+                    echo json_encode(new Response('productId cannot be null',-1));
                 }
             }else{
                 echo json_encode(new Response('Invalid method',-1));
@@ -353,6 +426,32 @@
             }else{
                 echo json_encode(new Response('invalid method',-1));
             }            
+        },
+        'search'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'GET'){
+                $query = $_GET['query'];
+                $start = $_GET['start'];
+                $limit = $_GET['limit'];
+                if($query != null && $limit != null){
+                    echo json_encode(search($query,$limit,$start));
+                }else{
+                    echo json_encode(new Response('query is null or limit is null',-1));
+                }
+            }else{
+                echo json_encode(new Response('invalid method',-1));
+            }            
+        },
+        'list/count'=>function(){
+            if($_SERVER['REQUEST_METHOD'] == 'GET'){
+                $query = $_GET['query'];
+                if($query != null){
+                    echo json_encode(count($query));
+                }else{
+                    echo json_encode(new Response('query is null',-1));
+                }
+            }else{
+                echo json_encode(new Response('invalid method',-1));
+            } 
         },
         'account/wishlist'=>function(){
             if ($_SERVER['REQUEST_METHOD'] == 'GET'){
